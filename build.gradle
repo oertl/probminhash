@@ -1,0 +1,369 @@
+//##################################
+//# Copyright (C) 2019 Otmar Ertl. #
+//# All rights reserved.           #
+//##################################
+
+import java.security.MessageDigest
+
+plugins {
+    id "de.undercouch.download" version "3.4.3" // used for Download task
+}
+
+ext {
+    paperDir = 'paper'
+    pythonDir = 'python'
+    cppDir = 'c++'
+    wyhashDir = "wyhash"
+    dataDir = 'data'
+    wyhashZipFile = "master.zip"
+    wyhashCppDir = "${cppDir}/${wyhashDir}"
+    wyhashSourceDir = "${wyhashCppDir}/wyhash-master"
+    wyhashHeaderFile = "wyhash_v1.h"
+}
+
+//#########################
+// wyHash
+//#########################
+
+task downloadWyhash(type: Download) {
+    src "https://github.com/wangyi-fudan/wyhash/archive/master.zip"
+    dest "${wyhashCppDir}"
+    overwrite true
+    onlyIfModified true
+}
+
+task unzipWyhash(type: Copy) {
+    inputs.files "${wyhashCppDir}/${wyhashZipFile}"
+    def zipFile = file("${wyhashCppDir}/${wyhashZipFile}")
+    def outputDir = file("${wyhashCppDir}")
+    from zipTree(zipFile)
+    into outputDir
+    dependsOn downloadWyhash
+}
+
+task copyWyhashFiles(type: Copy) {
+    from "${wyhashSourceDir}/${wyhashHeaderFile}"
+    into "${wyhashCppDir}"
+    dependsOn unzipWyhash
+}
+
+task getWyhash {
+    group 'ProbMinHash'
+    dependsOn copyWyhashFiles
+}
+
+//#########################
+// tests
+//#########################
+   
+
+task buildBitstreamTestExecutable(type: Exec) {
+    inputs.files "${cppDir}/bitstream_test.cpp", "${cppDir}/bitstream_random.hpp"
+    outputs.files "${cppDir}/bitstream_test.out"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'g++','-O3','-std=c++17','-Wall',"${cppDir}/bitstream_test.cpp",'-o',"${cppDir}/bitstream_test.out"
+}
+
+task executeBitstreamTest (type: Exec) {
+    inputs.files "${cppDir}/bitstream_test.out"
+    commandLine "${cppDir}/bitstream_test.out","${dataDir}"
+    dependsOn buildBitstreamTestExecutable
+}
+
+task buildRandomTestExecutable(type: Exec) {
+    inputs.files "${cppDir}/random_test.cpp", "${cppDir}/bitstream_random.hpp","${cppDir}/exponential_distribution.hpp","${wyhashCppDir}/${wyhashHeaderFile}"
+    outputs.files "${cppDir}/random_test.out"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'g++','-O3','-std=c++17','-Wall','-DNDEBUG',"${cppDir}/random_test.cpp",'-o',"${cppDir}/random_test.out"
+    //commandLine 'g++','-O3','-std=c++17','-Wall',"${cppDir}/random_test.cpp",'-o',"${cppDir}/random_test.out"
+}
+
+def randomTestFiles = [ \
+    "${dataDir}/boolean.txt", \
+    "${dataDir}/uniformLemire3.txt", \
+    "${dataDir}/uniformLemire11.txt", \
+    "${dataDir}/uniformLemire29.txt", \
+    "${dataDir}/uniformLemire256.txt", \
+    "${dataDir}/uniformLumbroso3.txt", \
+    "${dataDir}/uniformLumbroso11.txt", \
+    "${dataDir}/uniformLumbroso29.txt", \
+    "${dataDir}/uniformLumbroso256.txt", \
+    "${dataDir}/intPow3.txt", \
+    "${dataDir}/intPow8.txt", \
+    "${dataDir}/expZiggurat.txt", \
+    "${dataDir}/expStandard.txt", \
+    "${dataDir}/uniformDouble.txt", \
+    "${dataDir}/uniformDoubleHalf.txt", \
+    "${dataDir}/bernoulliReal0_2.txt", \
+    "${dataDir}/bernoulliRatio1_3.txt", \
+    "${dataDir}/truncatedExp0.txt", \
+    "${dataDir}/truncatedExp0_1.txt", \
+    "${dataDir}/truncatedExp0_5.txt", \
+    "${dataDir}/truncatedExp1.txt", \
+    "${dataDir}/truncatedExp2.txt" ]
+
+def executeRandomTestOutput = "${dataDir}/random_test_calculation_times.txt"
+
+task buildOrderMinhashTestExecutable(type: Exec) {
+    inputs.files "${cppDir}/order_minhash_equivalence_test.cpp", "${cppDir}/minhash.hpp","${cppDir}/bitstream_random.hpp","${cppDir}/data_generation.hpp","${cppDir}/exponential_distribution.hpp","${wyhashCppDir}/${wyhashHeaderFile}"
+    outputs.files "${cppDir}/order_minhash_equivalence_test.out"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'g++','-O3','-std=c++17','-Wall', "${cppDir}/order_minhash_equivalence_test.cpp",'-o',"${cppDir}/order_minhash_equivalence_test.out"
+}
+
+task executeRandomTest (type: Exec) {
+    inputs.files "${cppDir}/random_test.out"
+    outputs.files randomTestFiles
+    doFirst {
+        standardOutput = new FileOutputStream(executeRandomTestOutput)
+    }
+    commandLine "${cppDir}/random_test.out","${dataDir}"
+    dependsOn buildRandomTestExecutable
+}
+
+task performRandomTest (type: Exec) {
+    inputs.files randomTestFiles, "${pythonDir}/random_test.py"
+    outputs.files
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'python3', "${pythonDir}/random_test.py"
+    dependsOn executeRandomTest
+}
+
+def executeOrderMinhashEquivalenceTestOutput = "${dataDir}/orderMinhashEquivalenceTest.txt"
+
+task executeOrderMinhashEquivalenceTest (type: Exec) {
+    inputs.files "${cppDir}/order_minhash_equivalence_test.out"
+    outputs.files executeOrderMinhashEquivalenceTestOutput
+    doFirst {
+        standardOutput = new FileOutputStream(executeOrderMinhashEquivalenceTestOutput)
+    }
+    commandLine "${cppDir}/order_minhash_equivalence_test.out"
+    dependsOn buildOrderMinhashTestExecutable
+}
+
+task performOrderMinhashEquivalenceTest (type: Exec) {
+    inputs.files executeOrderMinhashEquivalenceTestOutput, "${pythonDir}/order_minhash_equivalence_test.py"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'python3', "${pythonDir}/order_minhash_equivalence_test.py"
+    dependsOn executeOrderMinhashEquivalenceTest
+}
+
+
+task performTests {
+    group 'ProbMinHash'
+    dependsOn performRandomTest, executeBitstreamTest, performOrderMinhashEquivalenceTest
+}
+
+
+task buildErrorTestExecutable(type: Exec) {
+    inputs.files "${cppDir}/error_test.cpp", "${cppDir}/minhash.hpp","${cppDir}/bitstream_random.hpp","${cppDir}/data_generation.hpp","${cppDir}/exponential_distribution.hpp","${wyhashCppDir}/${wyhashHeaderFile}"
+    outputs.files "${cppDir}/error_test.out"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'g++','-O3','-std=c++17','-fopenmp','-Wall',"${cppDir}/error_test.cpp",'-o',"${cppDir}/error_test.out"
+}
+
+task buildBufferSizeTestExecutable(type: Exec) {
+    inputs.files "${cppDir}/buffer_size_test.cpp", "${cppDir}/minhash.hpp","${cppDir}/bitstream_random.hpp","${cppDir}/data_generation.hpp","${cppDir}/exponential_distribution.hpp","${wyhashCppDir}/${wyhashHeaderFile}"
+    outputs.files "${cppDir}/buffer_size_test.out"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'g++','-O3','-std=c++17','-fopenmp','-Wall',"${cppDir}/buffer_size_test.cpp",'-o',"${cppDir}/buffer_size_test.out"
+}
+
+task buildPerformanceTestExecutable(type: Exec) {
+    inputs.files "${cppDir}/performance_test.cpp", "${cppDir}/minhash.hpp","${cppDir}/bitstream_random.hpp","${cppDir}/exponential_distribution.hpp","${wyhashCppDir}/${wyhashHeaderFile}"
+    outputs.files "${cppDir}/performance_test.out"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'g++','-O3','-DNDEBUG','-std=c++17','-Wall',"${cppDir}/performance_test.cpp",'-o',"${cppDir}/performance_test.out"
+    // commandLine 'g++','-O3','-std=c++17','-Wall',"${cppDir}/performance_test.cpp",'-o',"${cppDir}/performance_test.out"
+}
+
+task buildOrderMinhashPerformanceTestExecutable(type: Exec) {
+    inputs.files "${cppDir}/order_minhash_performance_test.cpp", "${cppDir}/minhash.hpp","${cppDir}/bitstream_random.hpp","${cppDir}/exponential_distribution.hpp","${wyhashCppDir}/${wyhashHeaderFile}"
+    outputs.files "${cppDir}/order_minhash_performance_test.out"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'g++','-O3','-DNDEBUG','-std=c++17','-Wall',"${cppDir}/order_minhash_performance_test.cpp",'-o',"${cppDir}/order_minhash_performance_test.out"
+    // commandLine 'g++','-O3','-std=c++17','-Wall',"${cppDir}/order_minhash_performance_test.cpp",'-o',"${cppDir}/order_minhash_performance_test.out"
+}
+
+
+def executeErrorTestOutput = "${dataDir}/error_test.csv"
+
+task executeErrorTest (type: Exec) {
+    inputs.files "${cppDir}/error_test.out"
+    outputs.files executeErrorTestOutput
+    doFirst {
+        standardOutput = new FileOutputStream(executeErrorTestOutput)
+    }
+    commandLine "${cppDir}/error_test.out"
+    dependsOn buildErrorTestExecutable
+}
+
+def errorChartsFig = "${paperDir}/error_charts.pdf"
+
+task makeErrorFigures (type: Exec) {
+    inputs.files executeErrorTestOutput, "${pythonDir}/error_charts.py","${pythonDir}/color_defs.py"
+    outputs.files errorChartsFig
+    doFirst {
+        standardOutput = new ByteArrayOutputStream()
+    }
+    commandLine 'python3', "${pythonDir}/error_charts.py"
+}
+
+def generateMD5(String s) {
+    MessageDigest digest = MessageDigest.getInstance("MD5")
+    digest.update(s.bytes)
+    new BigInteger(1, digest.digest()).longValue()
+}
+
+def dataSizes = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000]
+def performanceTestHashSizes = [256, 1024, 4096]
+
+def performanceTestDatFiles = []
+def performanceTestTasks = []
+for(hashSize in performanceTestHashSizes) {
+    for(dataSize in dataSizes) {
+
+        def performanceTestTaskName = "doPerformanceTest_${hashSize}_${dataSize}"
+        def performanceTestDatFile = "${dataDir}/performance_test_result_${hashSize}_${dataSize}.dat"
+        def seed = generateMD5(performanceTestTaskName)
+
+        task "${performanceTestTaskName}" (type: Exec) {
+            inputs.files "${cppDir}/performance_test.out"
+            outputs.files performanceTestDatFile
+            doFirst {
+                standardOutput = new FileOutputStream(performanceTestDatFile)
+            }
+            commandLine "${cppDir}/performance_test.out", seed, hashSize, dataSize 
+            dependsOn buildPerformanceTestExecutable
+        }
+
+        performanceTestDatFiles.add performanceTestDatFile
+        performanceTestTasks.add performanceTestTaskName
+    }
+}
+
+def orderMinHashDataSizes = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000]
+def orderMinhashL = [2, 5]
+def orderMinhashPerformanceTestDatFiles = []
+def orderMinhashPerformanceTestTasks = []
+for(hashSize in performanceTestHashSizes) {
+    for(dataSize in orderMinHashDataSizes) {
+        for(l in orderMinhashL) {
+
+            if(dataSize < l) continue
+
+            def orderMinhashPerformanceTestTaskName = "doOrderMinhashPerformanceTest_${hashSize}_${dataSize}_${l}"
+            def orderMinhashPerformanceTestDatFile = "${dataDir}/order_minhash_performance_test_result_${hashSize}_${dataSize}_${l}.dat"
+            def seed = generateMD5(orderMinhashPerformanceTestTaskName)
+
+            task "${orderMinhashPerformanceTestTaskName}" (type: Exec) {
+                inputs.files "${cppDir}/order_minhash_performance_test.out"
+                outputs.files orderMinhashPerformanceTestDatFile
+                doFirst {
+                    standardOutput = new FileOutputStream(orderMinhashPerformanceTestDatFile)
+                }
+                commandLine "${cppDir}/order_minhash_performance_test.out", seed, hashSize, dataSize, l
+                dependsOn buildOrderMinhashPerformanceTestExecutable
+            }
+
+            orderMinhashPerformanceTestDatFiles.add orderMinhashPerformanceTestDatFile
+            orderMinhashPerformanceTestTasks.add orderMinhashPerformanceTestTaskName
+        }
+    }
+}
+
+def bufferSizeTestDatFiles = []
+def bufferSizeTestTasks = []
+def bufferSizeTestHashSizes = [256, 1024, 4096]
+def bufferSizeTestDataSizes = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000]
+for(hashSize in bufferSizeTestHashSizes) {
+    for(dataSize in bufferSizeTestDataSizes) {
+
+        def bufferSizeTestTaskName = "doBufferSizeTest_${hashSize}_${dataSize}"
+        def bufferSizeTestDatFile = "${dataDir}/buffer_size_test_result_${hashSize}_${dataSize}.dat"
+        def seed = generateMD5(bufferSizeTestTaskName)
+
+        task "${bufferSizeTestTaskName}" (type: Exec) {
+            inputs.files "${cppDir}/buffer_size_test.out"
+            outputs.files bufferSizeTestDatFile
+            doFirst {
+                standardOutput = new FileOutputStream(bufferSizeTestDatFile)
+            }
+            commandLine "${cppDir}/buffer_size_test.out", seed, hashSize, dataSize
+            dependsOn buildBufferSizeTestExecutable
+        }
+
+        bufferSizeTestDatFiles.add bufferSizeTestDatFile
+        bufferSizeTestTasks.add bufferSizeTestTaskName
+    }
+}
+
+task makeBufferSizeTestFigures (type: Exec) {
+    inputs.files bufferSizeTestDatFiles, "${pythonDir}/buffer_size_charts.py","${pythonDir}/color_defs.py"
+    outputs.files "${paperDir}/buffer_size_charts.pdf"
+    commandLine 'python3', "${pythonDir}/buffer_size_charts.py"
+}
+
+def orderMinhashSpeedChartsFig = "${paperDir}/order_minhash_speed_charts.pdf"
+def speedChartsFig = "${paperDir}/speed_charts.pdf"
+def figFiles = [orderMinhashSpeedChartsFig, speedChartsFig, errorChartsFig, "${paperDir}/buffer_size_charts.pdf","${paperDir}/alpha.pdf","${paperDir}/exp_truncated_sampling.pdf"]
+
+task makeSpeedTestFigures (type: Exec) {
+    inputs.files performanceTestDatFiles, "${pythonDir}/speed_charts.py","${pythonDir}/color_defs.py"
+    outputs.files speedChartsFig
+    commandLine 'python3', "${pythonDir}/speed_charts.py"
+}
+
+task makeOrderMinhashPerformanceTestFigures (type: Exec) {
+    inputs.files orderMinhashPerformanceTestDatFiles, "${pythonDir}/order_minhash_speed_charts.py","${pythonDir}/color_defs.py"
+    outputs.files orderMinhashSpeedChartsFig
+    commandLine 'python3', "${pythonDir}/order_minhash_speed_charts.py"
+}
+
+task makeAlphaFigure (type: Exec) {
+    inputs.files "${pythonDir}/alpha.py","${pythonDir}/color_defs.py"
+    outputs.files "${paperDir}/alpha.pdf"
+    commandLine 'python3', "${pythonDir}/alpha.py"
+}
+
+task makeExpTruncatedSamplingFigure (type: Exec) {
+    inputs.files "${pythonDir}/exp_truncated_sampling.py","${pythonDir}/color_defs.py"
+    outputs.files "${paperDir}/exp_truncated_sampling.pdf"
+    commandLine 'python3', "${pythonDir}/exp_truncated_sampling.py"
+}
+
+
+task pdfFigures {
+    dependsOn makeSpeedTestFigures, makeAlphaFigure, makeErrorFigures, makeBufferSizeTestFigures, makeOrderMinhashPerformanceTestFigures, makeExpTruncatedSamplingFigure
+}
+
+task executePerformanceTests {
+    dependsOn performanceTestTasks
+}
+
+task executeOrderMinhashPerformanceTests {
+    dependsOn orderMinhashPerformanceTestTasks
+}
+
+task executeBufferSizeTests {
+    dependsOn bufferSizeTestTasks
+}
+
+task execute {
+    group 'ProbMinHash'
+    dependsOn executeErrorTest, executePerformanceTests, executeBufferSizeTests, executeOrderMinhashPerformanceTests
+}
+
+//#########################
+// paper
+//#########################
+
+task paper(type: Exec) {
+    group 'ProbMinHash'
+    workingDir paperDir
+    inputs.files "${paperDir}/paper.tex", "${paperDir}/config.txt", "${paperDir}/bibliography.bib", figFiles
+    outputs.files "${paperDir}/paper.pdf"
+    standardOutput = new FileOutputStream("latexmk.log")
+    commandLine 'latexmk','-pdf', '-recorder', '-verbose', 'paper'
+    dependsOn pdfFigures
+}
