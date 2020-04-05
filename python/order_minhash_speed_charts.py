@@ -1,7 +1,7 @@
-##################################
-# Copyright (C) 2019 Otmar Ertl. #
-# All rights reserved.           #
-##################################
+#######################################
+# Copyright (C) 2019-2020 Otmar Ertl. #
+# All rights reserved.                #
+#######################################
 
 import os
 import csv
@@ -87,5 +87,5 @@ for col in range(0, len(lValues)):
     isLastRow = True
     drawChart(ax[col], data, hashSizes[0], lValues[col], isLastRow, isFirstCol)
 
-fig.subplots_adjust(left=0.077, bottom=0.067, right=0.994, top=0.94, wspace=0.05, hspace=0.15)
+fig.subplots_adjust(left=0.077, bottom=0.125, right=0.994, top=0.94, wspace=0.05, hspace=0.15)
 fig.savefig("paper/order_minhash_speed_charts.pdf", format='pdf', dpi=1200, metadata={'creationDate': None})

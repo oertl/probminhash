@@ -1,12 +1,10 @@
-##################################
-# Copyright (C) 2019 Otmar Ertl. #
-# All rights reserved.           #
-##################################
-
+#######################################
+# Copyright (C) 2019-2020 Otmar Ertl. #
+# All rights reserved.                #
+#######################################
 
 from scipy.stats import ks_2samp
 import random
-
 
 significanceLevel = 0.01
 numAlternativeAlgorithms = 3

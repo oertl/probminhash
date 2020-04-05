@@ -1,12 +1,12 @@
-//##################################
-//# Copyright (C) 2019 Otmar Ertl. #
-//# All rights reserved.           #
-//##################################
+//#######################################
+//# Copyright (C) 2019-2020 Otmar Ertl. #
+//# All rights reserved.                #
+//#######################################
 
 #ifndef _BIT_STREAM_RANDOM_HPP_
 #define _BIT_STREAM_RANDOM_HPP_
 
-#include "wyhash/wyhash_v1.h"
+#include "wyhash/wyhash.h"
 #include "exponential_distribution.hpp"
 
 #include <cmath>

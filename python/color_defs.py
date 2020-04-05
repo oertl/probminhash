@@ -1,3 +1,7 @@
+#######################################
+# Copyright (C) 2019-2020 Otmar Ertl. #
+# All rights reserved.                #
+#######################################
 
 lightblue = "#a6cee3"
 darkblue = "#1f78b4"
@@ -12,7 +16,6 @@ darkviolet = "#6a3d9a"
 yellow = "#ffff99"
 brown = "#b15928"
 
-
 colors = {
     "P-MinHash" : darkorange,
     "ProbMinHash1" : darkgreen,
@@ -21,7 +24,7 @@ colors = {
     "ProbMinHash4": darkviolet,
     "ProbMinHash1a": lightgreen,
     "ProbMinHash3a": lightblue,
-    "MinHashX" : brown,
+    "OPH" : brown,
     "SuperMinHash" : lightviolet,
     "MinHash" : lightorange,
     "OrderMinHash" : lightorange, 

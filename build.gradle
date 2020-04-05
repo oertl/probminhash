@@ -1,7 +1,7 @@
-//##################################
-//# Copyright (C) 2019 Otmar Ertl. #
-//# All rights reserved.           #
-//##################################
+//#######################################
+//# Copyright (C) 2019-2020 Otmar Ertl. #
+//# All rights reserved.                #
+//#######################################
 
 import java.security.MessageDigest
 
@@ -15,10 +15,10 @@ ext {
     cppDir = 'c++'
     wyhashDir = "wyhash"
     dataDir = 'data'
-    wyhashZipFile = "master.zip"
+    wyhashZipFile = "wyhash_v4.zip"
     wyhashCppDir = "${cppDir}/${wyhashDir}"
-    wyhashSourceDir = "${wyhashCppDir}/wyhash-master"
-    wyhashHeaderFile = "wyhash_v1.h"
+    wyhashSourceDir = "${wyhashCppDir}/wyhash-wyhash_v4"
+    wyhashHeaderFile = "wyhash.h"
 }
 
 //#########################
@@ -26,7 +26,7 @@ ext {
 //#########################
 
 task downloadWyhash(type: Download) {
-    src "https://github.com/wangyi-fudan/wyhash/archive/master.zip"
+    src "https://github.com/wangyi-fudan/wyhash/archive/wyhash_v4.zip"
     dest "${wyhashCppDir}"
     overwrite true
     onlyIfModified true
@@ -148,10 +148,15 @@ task performOrderMinhashEquivalenceTest (type: Exec) {
     dependsOn executeOrderMinhashEquivalenceTest
 }
 
+task performComplexityInequalityTest (type: Exec) {
+    inputs.files "${pythonDir}/complexity_inequality_test.py"
+    standardOutput = new ByteArrayOutputStream()
+    commandLine 'python3', "${pythonDir}/complexity_inequality_test.py"
+}
 
 task performTests {
     group 'ProbMinHash'
-    dependsOn performRandomTest, executeBitstreamTest, performOrderMinhashEquivalenceTest
+    dependsOn performRandomTest, executeBitstreamTest, performOrderMinhashEquivalenceTest, performComplexityInequalityTest
 }
 
 
@@ -332,9 +337,14 @@ task makeExpTruncatedSamplingFigure (type: Exec) {
     commandLine 'python3', "${pythonDir}/exp_truncated_sampling.py"
 }
 
+task makeExampleFigure (type: Exec) {
+    inputs.files "${paperDir}/example.svg"
+    outputs.files "${paperDir}/example.pdf"
+    commandLine 'inkscape', "${paperDir}/example.svg", "--export-pdf=${paperDir}/example.pdf"
+}
 
 task pdfFigures {
-    dependsOn makeSpeedTestFigures, makeAlphaFigure, makeErrorFigures, makeBufferSizeTestFigures, makeOrderMinhashPerformanceTestFigures, makeExpTruncatedSamplingFigure
+    dependsOn makeSpeedTestFigures, makeAlphaFigure, makeErrorFigures, makeBufferSizeTestFigures, makeOrderMinhashPerformanceTestFigures, makeExpTruncatedSamplingFigure, makeExampleFigure
 }
 
 task executePerformanceTests {
@@ -352,18 +362,4 @@ task executeBufferSizeTests {
 task execute {
     group 'ProbMinHash'
     dependsOn executeErrorTest, executePerformanceTests, executeBufferSizeTests, executeOrderMinhashPerformanceTests
-}
-
-//#########################
-// paper
-//#########################
-
-task paper(type: Exec) {
-    group 'ProbMinHash'
-    workingDir paperDir
-    inputs.files "${paperDir}/paper.tex", "${paperDir}/config.txt", "${paperDir}/bibliography.bib", figFiles
-    outputs.files "${paperDir}/paper.pdf"
-    standardOutput = new FileOutputStream("latexmk.log")
-    commandLine 'latexmk','-pdf', '-recorder', '-verbose', 'paper'
-    dependsOn pdfFigures
 }

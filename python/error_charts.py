@@ -1,7 +1,7 @@
-##################################
-# Copyright (C) 2019 Otmar Ertl. #
-# All rights reserved.           #
-##################################
+#######################################
+# Copyright (C) 2019-2020 Otmar Ertl. #
+# All rights reserved.                #
+#######################################
 
 from scipy.special import erfinv
 import csv
@@ -118,7 +118,7 @@ def getAlgorithmDescriptions(data, caseId):
     if(isUnweighted(data, caseId)):
         sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a",
                             "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", 
-                            "MinHash", "SuperMinHash"]
+                            "MinHash", "SuperMinHash", "OPH"]
     else:
         sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a",
                             "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4"]
@@ -226,7 +226,7 @@ for row in range(0, 3):
 
         ax.set_xscale("log", basex=2)
         ax.set_xlim([xLowerBound, xUpperBound])
-        ax.set_ylim([0, 1.1])
+        ax.set_ylim([0, 2])
         if isFirstCol:
             ax.set_ylabel(r"relative empirical MSE")
             #ax.set_ylabel(r"$\text{empirical MSE}/(J_p(1-J_p)/m)$")
@@ -266,21 +266,21 @@ for row in range(0, 3):
 
         handles, labels = ax.get_legend_handles_labels()
 
-        while len(handles) < 12:
+        while len(handles) < 10:
             handles.append(plt.Line2D([],[], alpha=0))
             labels.append('')
         
         if isUnweighted(data, caseId):
-            order = [0,1,2,3,4,8,9,10,11,5,6,7]
+            order = [0,1,2,3,4,9,8,5,6,7]
         else:
-            order = [0,1,2,3,4,5,6,7,8,9,10,11]
+            order = [0,1,2,3,4,5,6,7,8,9]
 
-        leg = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc=3, ncol=2, numpoints=1)
+        leg = ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order], loc='upper left', ncol=2, numpoints=1)
 
         leg.get_frame().set_linewidth(0.0)
         leg.get_frame().set_facecolor('none')
 
-fig.subplots_adjust(left=0.03, bottom=0.045, right=0.994, top=0.975, wspace=0.05, hspace=0.15)
+fig.subplots_adjust(left=0.034, bottom=0.045, right=0.994, top=0.975, wspace=0.05, hspace=0.15)
 fig.savefig("paper/error_charts.pdf", format='pdf', dpi=1200, metadata={'creationDate': None})
 plt.close(fig)
 

@@ -1,7 +1,7 @@
-//##################################
-//# Copyright (C) 2019 Otmar Ertl. #
-//# All rights reserved.           #
-//##################################
+//#######################################
+//# Copyright (C) 2019-2020 Otmar Ertl. #
+//# All rights reserved.                #
+//#######################################
 
 #include "minhash.hpp"
 #include "bitstream_random.hpp"
@@ -28,7 +28,18 @@ public:
 
     RNGFunction(uint64_t seed) : seed(seed) {}
     
-    WyrandBitStream operator()(const uint64_t& x) const {
+    WyrandBitStream operator()(uint64_t x) const {
+        return WyrandBitStream(x, seed);
+    }
+};
+
+class RNGFunctionForSignatureComponents {
+    const uint64_t seed;
+public:
+
+    RNGFunctionForSignatureComponents(uint64_t seed) : seed(seed) {}
+    
+    WyrandBitStream operator()(uint32_t x) const {
         return WyrandBitStream(x, seed);
     }
 };
@@ -40,11 +51,9 @@ struct WeightFunction {
 };
 
 template<typename H, typename D>
-void testCase(uint64_t seed, uint64_t dataSize, uint32_t hashSize, uint64_t numCycles, const D& testData, const string& algorithmLabel, const string& distributionLabel) {
+void testCase(H& h, uint64_t dataSize, uint32_t hashSize, uint64_t numCycles, const D& testData, const string& algorithmLabel, const string& distributionLabel) {
 
     assert(numCycles = testData.size());
-    
-    H h(hashSize, ExtractFunction(), RNGFunction(seed));
 
     uint64_t consumer = 0;
     chrono::steady_clock::time_point tStart = chrono::steady_clock::now();
@@ -65,15 +74,24 @@ void testCase(uint64_t seed, uint64_t dataSize, uint32_t hashSize, uint64_t numC
     cout << consumer << endl << flush;
 }
 
-template<template<typename, typename, typename, typename> typename H, typename D>
-void testWeightedCase(uint64_t seed, uint64_t dataSize, uint32_t hashSize, uint64_t numCycles, const D& testData, const string& algorithmLabel, const string& distributionLabel) {
-    testCase<H<uint64_t, ExtractFunction, RNGFunction, WeightFunction>,D>(seed, dataSize, hashSize, numCycles, testData, algorithmLabel, distributionLabel);
+template<template<typename, typename, typename, typename> typename H, typename D, typename GEN>
+void testWeightedCase(GEN& rng, uint64_t dataSize, uint32_t hashSize, uint64_t numCycles, const D& testData, const string& algorithmLabel, const string& distributionLabel) {
+    H<uint64_t, ExtractFunction, RNGFunction, WeightFunction> h(hashSize, ExtractFunction(), RNGFunction(rng()));
+    testCase(h, dataSize, hashSize, numCycles, testData, algorithmLabel, distributionLabel);
 }
 
-template<template<typename, typename, typename> typename H, typename D>
-void testUnweightedCase(uint64_t seed, uint64_t dataSize, uint32_t hashSize, uint64_t numCycles, const D& testData, const string& algorithmLabel) {
-    testCase<H<uint64_t, ExtractFunction, RNGFunction>,D>(seed, dataSize, hashSize, numCycles, testData, algorithmLabel, "unweighted");
+template<template<typename, typename, typename> typename H, typename D, typename GEN>
+void testUnweightedCase(GEN& rng, uint64_t dataSize, uint32_t hashSize, uint64_t numCycles, const D& testData, const string& algorithmLabel) {
+    H<uint64_t, ExtractFunction, RNGFunction> h(hashSize, ExtractFunction(), RNGFunction(rng()));
+    testCase(h, dataSize, hashSize, numCycles, testData, algorithmLabel, "unweighted");
 }
+
+template<typename D, typename GEN>
+void testUnweightedCaseOnePermutationHashingWithOptimalDensification(GEN& rng, uint64_t dataSize, uint32_t hashSize, uint64_t numCycles, const D& testData, const string& algorithmLabel) {
+    OnePermutationHashingWithOptimalDensification<uint64_t, ExtractFunction, RNGFunction, RNGFunctionForSignatureComponents> h(hashSize, ExtractFunction(), RNGFunction(rng()), RNGFunctionForSignatureComponents(rng()));
+    testCase(h, dataSize, hashSize, numCycles, testData, algorithmLabel, "unweighted");
+}
+
  
 template <typename GEN> double generatePareto(GEN& rng, double scale, double shape) {
     std::uniform_real_distribution<double> distributionUniform(0., 1.); 
@@ -98,13 +116,13 @@ template <typename GEN> void test(GEN& rng, uint32_t hashSize,uint64_t dataSize,
             testData[i] = d;
         }
 
-        testWeightedCase<PMinHash>(rng(), dataSize, hashSize, numCycles, testData, "P-MinHash", distributionLabel);
-        testWeightedCase<ProbMinHash1>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1", distributionLabel);
-        testWeightedCase<ProbMinHash1a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1a", distributionLabel);
-        testWeightedCase<ProbMinHash2>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash2", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash3>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash3a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3a", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash4>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash4", distributionLabel);
+        testWeightedCase<PMinHash>(rng, dataSize, hashSize, numCycles, testData, "P-MinHash", distributionLabel);
+        testWeightedCase<ProbMinHash1>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1", distributionLabel);
+        testWeightedCase<ProbMinHash1a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1a", distributionLabel);
+        testWeightedCase<ProbMinHash2>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash2", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash3>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash3a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3a", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash4>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash4", distributionLabel);
     }
     {
         const string distributionLabel = "pareto(1,0.5)";
@@ -121,13 +139,13 @@ template <typename GEN> void test(GEN& rng, uint32_t hashSize,uint64_t dataSize,
             testData[i] = d;
         }
 
-        testWeightedCase<PMinHash>(rng(), dataSize, hashSize, numCycles, testData, "P-MinHash", distributionLabel);
-        testWeightedCase<ProbMinHash1>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1", distributionLabel);
-        testWeightedCase<ProbMinHash1a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1a", distributionLabel);
-        testWeightedCase<ProbMinHash2>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash2", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash3>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash3a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3a", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash4>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash4", distributionLabel);
+        testWeightedCase<PMinHash>(rng, dataSize, hashSize, numCycles, testData, "P-MinHash", distributionLabel);
+        testWeightedCase<ProbMinHash1>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1", distributionLabel);
+        testWeightedCase<ProbMinHash1a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1a", distributionLabel);
+        testWeightedCase<ProbMinHash2>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash2", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash3>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash3a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3a", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash4>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash4", distributionLabel);
     }
     {
         const string distributionLabel = "pareto(1,2)";
@@ -144,13 +162,13 @@ template <typename GEN> void test(GEN& rng, uint32_t hashSize,uint64_t dataSize,
             testData[i] = d;
         }
 
-        testWeightedCase<PMinHash>(rng(), dataSize, hashSize, numCycles, testData, "P-MinHash", distributionLabel);
-        testWeightedCase<ProbMinHash1>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1", distributionLabel);
-        testWeightedCase<ProbMinHash1a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1a", distributionLabel);
-        testWeightedCase<ProbMinHash2>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash2", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash3>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash3a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3a", distributionLabel);
-        if(hashSize > 1) testWeightedCase<ProbMinHash4>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash4", distributionLabel);
+        testWeightedCase<PMinHash>(rng, dataSize, hashSize, numCycles, testData, "P-MinHash", distributionLabel);
+        testWeightedCase<ProbMinHash1>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1", distributionLabel);
+        testWeightedCase<ProbMinHash1a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1a", distributionLabel);
+        testWeightedCase<ProbMinHash2>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash2", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash3>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash3a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3a", distributionLabel);
+        if(hashSize > 1) testWeightedCase<ProbMinHash4>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash4", distributionLabel);
     }
     { // unweighted case (weights constant 1)
 
@@ -165,15 +183,16 @@ template <typename GEN> void test(GEN& rng, uint32_t hashSize,uint64_t dataSize,
             testData[i] = d;
         }
 
-        testUnweightedCase<PMinHash>(rng(), dataSize, hashSize, numCycles, testData, "P-MinHash");
-        testUnweightedCase<ProbMinHash1>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1");
-        testUnweightedCase<ProbMinHash1a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash1a");
-        testUnweightedCase<ProbMinHash2>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash2");
-        if(hashSize > 1) testUnweightedCase<ProbMinHash3>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3");
-        if(hashSize > 1) testUnweightedCase<ProbMinHash3a>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash3a");
-        if(hashSize > 1) testUnweightedCase<ProbMinHash4>(rng(), dataSize, hashSize, numCycles, testData, "ProbMinHash4");
-        testUnweightedCase<SuperMinHash>(rng(), dataSize, hashSize, numCycles, testData, "SuperMinHash");
-        testUnweightedCase<MinHash>(rng(), dataSize, hashSize, numCycles, testData, "MinHash");
+        testUnweightedCase<PMinHash>(rng, dataSize, hashSize, numCycles, testData, "P-MinHash");
+        testUnweightedCase<ProbMinHash1>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1");
+        testUnweightedCase<ProbMinHash1a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash1a");
+        testUnweightedCase<ProbMinHash2>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash2");
+        if(hashSize > 1) testUnweightedCase<ProbMinHash3>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3");
+        if(hashSize > 1) testUnweightedCase<ProbMinHash3a>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash3a");
+        if(hashSize > 1) testUnweightedCase<ProbMinHash4>(rng, dataSize, hashSize, numCycles, testData, "ProbMinHash4");
+        testUnweightedCase<SuperMinHash>(rng, dataSize, hashSize, numCycles, testData, "SuperMinHash");
+        testUnweightedCase<MinHash>(rng, dataSize, hashSize, numCycles, testData, "MinHash");
+        testUnweightedCaseOnePermutationHashingWithOptimalDensification(rng, dataSize, hashSize, numCycles, testData, "OPH");
     }
 }
 

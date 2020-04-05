@@ -1,7 +1,7 @@
-##################################
-# Copyright (C) 2019 Otmar Ertl. #
-# All rights reserved.           #
-##################################
+#######################################
+# Copyright (C) 2019-2020 Otmar Ertl. #
+# All rights reserved.                #
+#######################################
 
 from collections import OrderedDict
 import numpy
@@ -34,9 +34,9 @@ def draw_fig1(ax):
     xVals = [i/(numPoints-1)*xMax for i in range(0,numPoints)]
     xVals1 = [i/(numPoints-1) for i in range(0,numPoints)]
 
-    ax.plot(xVals, [exp(-rate*x) for x in xVals], color="black", label=r"$y=e^{-\lambda x}$", linewidth=1, zorder=300) # function
+    ax.plot(xVals, [exp(-rate*x) for x in xVals], color="black", label=r"$\rho:y=e^{-\lambda x}$", linewidth=1, zorder=300) # function
 
-    ax.fill_between(xVals1, [0. for x in xVals1], [exp(-rate) for x in xVals1], facecolor=color_defs.darkblue, edgeColor=None, label=r"$A_1$", zorder=-300) # rectangle
+    ax.fill_between(xVals1, [0. for x in xVals1], [exp(-rate) for x in xVals1], facecolor=color_defs.lightgreen, edgeColor=None, label=r"$A_1$", zorder=-300) # rectangle
     ax.fill_between(xVals1, [exp(-rate) for x in xVals1], [exp(-x*rate) for x in xVals1], faceColor=color_defs.lightblue, edgeColor=None, label=r"$A_2$", zorder=-310)
 
     ax.text(0.2, 0.25, "$A_1$", horizontalalignment='center', verticalalignment='center')
@@ -70,14 +70,14 @@ def draw_fig2(ax):
     xValsSecondHalf = [0.5 + 0.5*i/(numPoints-1) for i in range(0,numPoints)]
     xValsC3 = [c2*i/(numPoints-1) for i in range(0,numPoints)]
 
-    ax.fill_between(xVals1, [exp(-rate) for x in xVals1], [min(1 - x *(1-exp(-rate)), (1 + exp(-rate))*0.5) for x in xVals1], facecolor=color_defs.lightred, edgeColor=None, label=r"$A_4$", zorder=-300) # rectangle
-    ax.fill_between(xValsSecondHalf, [1 - x *(1-exp(-rate)) for x in xValsSecondHalf], [(1 + exp(-rate))*0.5 for x in xValsSecondHalf], facecolor=color_defs.darkorange, edgeColor=None, label=r"$A_5$", zorder=-310) # rectangle
+    ax.fill_between(xVals1, [exp(-rate) for x in xVals1], [min(1 - x *(1-exp(-rate)), (1 + exp(-rate))*0.5) for x in xVals1], facecolor=color_defs.darkorange, edgeColor=None, label=r"$A_4$", zorder=-300) # rectangle
+    ax.fill_between(xValsSecondHalf, [1 - x *(1-exp(-rate)) for x in xValsSecondHalf], [(1 + exp(-rate))*0.5 for x in xValsSecondHalf], facecolor=color_defs.lightred, edgeColor=None, label=r"$A_5$", zorder=-310) # rectangle
     ax.fill_between(xValsFirstHalf,  [(exp(-rate)+1)*0.5 for x in xValsFirstHalf], [1 - x *(1-exp(-rate)) for x in xValsFirstHalf],facecolor=color_defs.lightorange, edgeColor=None, label=r"$A_6$", zorder=-320) # rectangle
-    ax.fill_between(xValsC3,  [exp(-rate) for x in xValsC3], [ (1 + exp(-rate))*0.5 for x in xValsC3],facecolor=color_defs.darkred, edgeColor=None,  zorder=-230, label=r"$A_3$") # rectangle
+    ax.fill_between(xValsC3,  [exp(-rate) for x in xValsC3], [ (1 + exp(-rate))*0.5 for x in xValsC3],facecolor=color_defs.lightviolet, edgeColor=None,  zorder=-230, label=r"$A_3$") # rectangle
 
-    ax.plot(xVals, [exp(-rate*x) for x in xVals], color="black", linewidth=1, label=r"$\tilde{y}=\frac{e^{\lambda (1-x)}-1}{e^\lambda-1}$", zorder=300) # function
-    ax.plot(xVals, [1 - rate*x for x in xVals], color="black", linestyle = "dashed", linewidth=1, label=r"$\tilde{y}=1-x\frac{\lambda}{1-e^{-\lambda}}$", zorder=290)
-    ax.plot(xVals, [exp(-rate) + (1 - x)*rate*exp(-rate) for x in xVals], color="black", linestyle = "dotted", linewidth=1, label=r"$\tilde{y}=(1-x)\frac{\lambda}{e^{\lambda}-1}$", zorder=280)
+    ax.plot(xVals, [exp(-rate*x) for x in xVals], color="black", linewidth=1, label=r"$\rho:\tilde{y}=\frac{e^{\lambda (1-x)}-1}{e^\lambda-1}$", zorder=300) # function
+    ax.plot(xVals, [1 - rate*x for x in xVals], color="black", linestyle = "dashed", linewidth=1, label=r"$\text{tangent at 0}:\tilde{y}=1-x\frac{\lambda}{1-e^{-\lambda}}$", zorder=290)
+    ax.plot(xVals, [exp(-rate) + (1 - x)*rate*exp(-rate) for x in xVals], color="black", linestyle = "dotted", linewidth=1, label=r"$\text{tangent at 1}:\tilde{y}=(1-x)\frac{\lambda}{e^{\lambda}-1}$", zorder=280)
 
     ax.plot([0.5], [0.5*(1+ exp(-rate))], marker='o', markersize=3, color="black")
     ax.text(0.5, 0.5*(1+ exp(-rate))+0.02, "(0.5,0.5)")

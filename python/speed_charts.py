@@ -1,7 +1,7 @@
-##################################
-# Copyright (C) 2019 Otmar Ertl. #
-# All rights reserved.           #
-##################################
+#######################################
+# Copyright (C) 2019-2020 Otmar Ertl. #
+# All rights reserved.                #
+#######################################
 
 import os
 import csv
@@ -55,7 +55,7 @@ def drawChart(ax, data, hashSize, mode, isLastRow, isFirstCol):
         sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4"]
         title = r"$m=" + str(hashSize) + r"\quad w(d)\sim\text{Pareto}(1,2)$"
     elif (mode == "unweighted"):
-        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "MinHash", "SuperMinHash"]
+        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "MinHash", "SuperMinHash", "OPH"]
         title = r"$m=" + str(hashSize) + r"\quad w(d)=1$"
     else:
         assert(False)
@@ -97,7 +97,7 @@ def drawChart(ax, data, hashSize, mode, isLastRow, isFirstCol):
     leg.get_frame().set_facecolor('none')
 
 hashSizes = [256, 1024, 4096]
-modes = ["exp(1)", "pareto(1,0.5)", "pareto(1,2)", "unweighted"]
+modes = ["exp(1)", "pareto(1,2)", "pareto(1,0.5)", "unweighted"]
 
 data = readData()
 

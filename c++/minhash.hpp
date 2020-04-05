@@ -1,7 +1,7 @@
-//##################################
-//# Copyright (C) 2019 Otmar Ertl. #
-//# All rights reserved.           #
-//##################################
+//#######################################
+//# Copyright (C) 2019-2020 Otmar Ertl. #
+//# All rights reserved.                #
+//#######################################
 
 #ifndef _MINHASH_HPP_
 #define _MINHASH_HPP_
@@ -703,6 +703,59 @@ public:
             }
         }
 
+        return result;
+    }
+};
+
+
+// An implementation of One Permutation Hashing with optimal densification as described in
+// A. Shrivastava. Optimal densification for fast and accurate minwise
+// hashing. In Proceedings of the 34th International Conference on
+// Machine Learning (ICML), pages 3154–3163, 2017.
+template<typename D, typename E, typename R, typename Q>
+class OnePermutationHashingWithOptimalDensification {
+    const uint32_t m;
+    const E extractFunction;
+    const R rngFunction;
+    const Q rngFunctionForEmptyBinIndex;
+
+    const std::unique_ptr<uint64_t[]> values; 
+
+    void reset() {
+        std::fill_n(values.get(), m, std::numeric_limits<uint64_t>::max());
+    }
+
+public:
+
+    OnePermutationHashingWithOptimalDensification(const uint32_t m, E extractFunction = E(), R rngFunction = R(), Q rngFunctionForEmptyBinIndex = Q()) : m(m), extractFunction(extractFunction), rngFunction(rngFunction), rngFunctionForEmptyBinIndex(rngFunctionForEmptyBinIndex), values(new uint64_t[m])  {}
+
+    template<typename X>
+    std::vector<D> operator()(const X& data) {
+        reset();
+        std::vector<D> result(m);
+
+        for(const auto& x : data) {
+
+            const D& d = extractFunction(x);
+            auto rng = rngFunction(d);
+            uint32_t k = getUniformLemire(m, rng);
+            uint64_t r = getUniformPow2(64, rng);
+            if (r <= values[k]) {
+                values[k] = r;
+                result[k] = d;
+            }
+        }
+
+        for(uint32_t k = 0; k < m; ++k) {
+            if (values[k] == std::numeric_limits<uint64_t>::max()) {
+                auto rngForEmptyBin = rngFunctionForEmptyBinIndex(k);
+                uint32_t l;
+                do {
+                    l = getUniformLemire(m, rngForEmptyBin);
+                } while (values[l] == std::numeric_limits<uint64_t>::max());
+                result[k] = result[l];
+            }
+        }
         return result;
     }
 };

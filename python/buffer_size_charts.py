@@ -1,7 +1,7 @@
-##################################
-# Copyright (C) 2019 Otmar Ertl. #
-# All rights reserved.           #
-##################################
+#######################################
+# Copyright (C) 2019-2020 Otmar Ertl. #
+# All rights reserved.                #
+#######################################
 
 import os
 import csv
@@ -141,8 +141,8 @@ for i in range(0, len(hashSizes)):
     m = hashSizes[i]
     xAxisLabel = i == len(hashSizes)-1
     plot(ax[i][0], m, ["probMinHash1aWeightedExp", "probMinHash3aWeightedExp"], data, r"$m = " + str(m) + r"\quad w(d)\sim\text{Exp}(1)$", xAxisLabel, True)
-    plot(ax[i][1], m, ["probMinHash1aWeightedPareto0_5", "probMinHash3aWeightedPareto0_5"], data, r"$m = " + str(m) + r"\quad w(d)\sim\text{Pareto}(1,0.5)$", xAxisLabel, False)
-    plot(ax[i][2], m, ["probMinHash1aWeightedPareto2", "probMinHash3aWeightedPareto2"], data, r"$m = " + str(m) + r"\quad w(d)\sim\text{Pareto}(1,2)$", xAxisLabel, False)
+    plot(ax[i][1], m, ["probMinHash1aWeightedPareto2", "probMinHash3aWeightedPareto2"], data, r"$m = " + str(m) + r"\quad w(d)\sim\text{Pareto}(1,2)$", xAxisLabel, False)
+    plot(ax[i][2], m, ["probMinHash1aWeightedPareto0_5", "probMinHash3aWeightedPareto0_5"], data, r"$m = " + str(m) + r"\quad w(d)\sim\text{Pareto}(1,0.5)$", xAxisLabel, False)
     plot(ax[i][3], m, ["probMinHash1a", "probMinHash3a"], data, r"$m = " + str(m) + r"\quad w(d)=1$", xAxisLabel, False)
 
 fig.subplots_adjust(left=0.03, bottom=0.045, right=0.994, top=0.975, wspace=0.05, hspace=0.15)

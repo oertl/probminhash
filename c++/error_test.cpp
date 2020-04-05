@@ -1,7 +1,7 @@
-//##################################
-//# Copyright (C) 2019 Otmar Ertl. #
-//# All rights reserved.           #
-//##################################
+//#######################################
+//# Copyright (C) 2019-2020 Otmar Ertl. #
+//# All rights reserved.                #
+//#######################################
 
 #include "bitstream_random.hpp"
 #include "minhash.hpp"
@@ -30,56 +30,25 @@ public:
     }
 };
 
+class RNGFunctionForSignatureComponents {
+    const uint64_t seed;
+public:
+
+    RNGFunctionForSignatureComponents(uint64_t seed) : seed(seed) {}
+    
+    WyrandBitStream operator()(uint32_t x) const {
+        return WyrandBitStream(x, seed);
+    }
+};
+
 struct WeightFunction {
     double operator()(const std::tuple<uint64_t,double>& d) const {
         return std::get<1>(d);
     }
 };
 
-template<template<typename,typename, typename, typename> typename H>
-class WeightedEvaluator {
-    const uint32_t hashSize;
-    H<uint64_t, ExtractFunction, RNGFunction, WeightFunction> h;
-public:
-
-    WeightedEvaluator(uint32_t hashSize, uint64_t seed) : hashSize(hashSize), h(hashSize, ExtractFunction(), RNGFunction(seed)) {}
-
-    uint32_t operator()(const vector<tuple<uint64_t,double>>& d1, const vector<tuple<uint64_t,double>>& d2) {
-        std::vector<uint64_t> h1 = h(d1);
-        std::vector<uint64_t> h2 = h(d2);
-        uint32_t numEqual = 0;
-        for (uint32_t j = 0; j < hashSize; ++j)  {
-            if (h1[j] == h2[j]) {
-                numEqual += 1;
-            }
-        }
-        return numEqual;
-    }
-};
-
-template<template<typename,typename, typename> typename H>
-class UnweightedEvaluator {
-    const uint32_t hashSize;
-    H<uint64_t, ExtractFunction, RNGFunction> h;
-public:
-
-    UnweightedEvaluator(uint32_t hashSize, uint64_t seed) : hashSize(hashSize), h(hashSize, ExtractFunction(), RNGFunction(seed)) {}
-
-    uint32_t operator()(const vector<tuple<uint64_t,double>>& d1, const vector<tuple<uint64_t,double>>& d2) {
-        std::vector<uint64_t> h1 = h(d1);
-        std::vector<uint64_t> h2 = h(d2);
-        uint32_t numEqual = 0;
-        for (uint32_t j = 0; j < hashSize; ++j)  {
-            if (h1[j] == h2[j]) {
-                numEqual += 1;
-            }
-        }
-        return numEqual;
-    }
-};
-
-template<typename E>
-void testCase(const Weights& w, const string& algorithmDescription, uint32_t m, uint64_t numIterations, uint64_t seed) {
+template<typename S>
+void testCase(const Weights& w, const string& algorithmDescription, uint32_t m, uint64_t numIterations, S&& hashFunctionSupplier) {
 
     const auto dataSizes = w.getSizes();
 
@@ -98,7 +67,8 @@ void testCase(const Weights& w, const string& algorithmDescription, uint32_t m, 
 
     #pragma omp parallel
     {
-        E evaluator(m, seed);
+        auto h = hashFunctionSupplier(m);
+
         #pragma omp for
         for (uint64_t i = 0; i < numIterations; ++i) {
 
@@ -113,7 +83,15 @@ void testCase(const Weights& w, const string& algorithmDescription, uint32_t m, 
             assert(get<0>(dataSizes) == d1.size());
             assert(get<1>(dataSizes) == d2.size());
 
-            uint32_t numEqual = evaluator(d1, d2);
+            std::vector<uint64_t> h1 = h(d1);
+            std::vector<uint64_t> h2 = h(d2);
+            
+            uint32_t numEqual = 0;
+            for (uint32_t j = 0; j < m; ++j)  {
+                if (h1[j] == h2[j]) {
+                    numEqual += 1;
+                }
+            }
 
             #pragma omp atomic
             numEquals[numEqual] += 1;
@@ -138,8 +116,7 @@ void testCase(const Weights& w, const string& algorithmDescription, uint32_t m, 
     for(uint32_t x : numEquals) {
         if (!first) {
             cout << ";";
-        }
-        else {
+        } else {
             first = false;
         }
         cout << x;
@@ -148,31 +125,30 @@ void testCase(const Weights& w, const string& algorithmDescription, uint32_t m, 
     cout << flush;
 }
 
-
 void testCase(const Weights& w, uint32_t hashSize, uint64_t numIterations) {
     if (w.allWeightsZeroOrOne()) {
-        testCase<UnweightedEvaluator<PMinHash>>(w, "P-MinHash", hashSize, numIterations, UINT64_C(0xe48abf31a570087f));
-        testCase<UnweightedEvaluator<ProbMinHash1>>(w, "ProbMinHash1", hashSize, numIterations, UINT64_C(0x7845da8c2cb11b39));
-        testCase<UnweightedEvaluator<ProbMinHash1a>>(w, "ProbMinHash1a", hashSize, numIterations, UINT64_C(0x7845da8c2cb11b39));
-        testCase<UnweightedEvaluator<ProbMinHash2>>(w, "ProbMinHash2", hashSize, numIterations, UINT64_C(0xc8d7cc411fc10f3d));
-        if(hashSize > 1) testCase<UnweightedEvaluator<ProbMinHash3>>(w, "ProbMinHash3", hashSize, numIterations, UINT64_C(0x4e4b27c3824bd1e8));
-        if(hashSize > 1) testCase<UnweightedEvaluator<ProbMinHash3a>>(w, "ProbMinHash3a", hashSize, numIterations, UINT64_C(0x4e4b27c3824bd1e8));
-        if(hashSize > 1) testCase<UnweightedEvaluator<ProbMinHash4>>(w, "ProbMinHash4", hashSize, numIterations, UINT64_C(0x7f6ad5700f5c4cf0));
-        testCase<UnweightedEvaluator<MinHash>>(w, "MinHash", hashSize, numIterations, UINT64_C(0x955e28fcedd50e0f));
-        testCase<UnweightedEvaluator<SuperMinHash>>(w, "SuperMinHash", hashSize, numIterations, UINT64_C(0xd647a0e043225db3));
-        // testCase<UnweightedEvaluator<HistoSketch>>(w, "HistoSketch", hashSize, numIterations, UINT64_C(0xa9b7a09103ca956b));
-        // testCase<UnweightedEvaluator<ZeroBitEngineered>>(w, "0-bit Engineered", hashSize, numIterations, UINT64_C(0x77294d7eba3f85c1));
-    }
-    else {
-        testCase<WeightedEvaluator<PMinHash>>(w, "P-MinHash", hashSize, numIterations, UINT64_C(0x60979c513666ee4b));
-        testCase<WeightedEvaluator<ProbMinHash1>>(w, "ProbMinHash1", hashSize, numIterations, UINT64_C(0x897d7798a7629409));
-        testCase<WeightedEvaluator<ProbMinHash1a>>(w, "ProbMinHash1a", hashSize, numIterations, UINT64_C(0x897d7798a7629409));
-        testCase<WeightedEvaluator<ProbMinHash2>>(w, "ProbMinHash2", hashSize, numIterations, UINT64_C(0x930bb771b6666420));
-        if(hashSize > 1) testCase<WeightedEvaluator<ProbMinHash3>>(w, "ProbMinHash3", hashSize, numIterations, UINT64_C(0xa03cf8d39d2a03b8));
-        if(hashSize > 1) testCase<WeightedEvaluator<ProbMinHash3a>>(w, "ProbMinHash3a", hashSize, numIterations, UINT64_C(0xa03cf8d39d2a03b8));
-        if(hashSize > 1) testCase<WeightedEvaluator<ProbMinHash4>>(w, "ProbMinHash4", hashSize, numIterations, UINT64_C(0x02f7adcab92fdcbb));
-        // testCase<WeightedEvaluator<HistoSketch>>(w, "HistoSketch", hashSize, numIterations, UINT64_C(0xa9b7a09103ca956b));
-        // testCase<WeightedEvaluator<ZeroBitEngineered>>(w, "0-bit Engineered", hashSize, numIterations, UINT64_C(0x77294d7eba3f85c1));
+        testCase(w, "P-MinHash", hashSize, numIterations, [](uint32_t m){return PMinHash<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0xe48abf31a570087f));});
+        testCase(w, "ProbMinHash1", hashSize, numIterations, [](uint32_t m){return ProbMinHash1<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0x7845da8c2cb11b39));});
+        testCase(w, "ProbMinHash1a", hashSize, numIterations, [](uint32_t m){return ProbMinHash1a<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0x7845da8c2cb11b39));});
+        testCase(w, "ProbMinHash2", hashSize, numIterations, [](uint32_t m){return ProbMinHash2<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0xc8d7cc411fc10f3d));});
+        if(hashSize > 1) testCase(w, "ProbMinHash3", hashSize, numIterations, [](uint32_t m){return ProbMinHash3<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0x4e4b27c3824bd1e8));});
+        if(hashSize > 1) testCase(w, "ProbMinHash3a", hashSize, numIterations, [](uint32_t m){return ProbMinHash3a<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0x4e4b27c3824bd1e8));});
+        if(hashSize > 1) testCase(w, "ProbMinHash4", hashSize, numIterations, [](uint32_t m){return ProbMinHash4<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0x7f6ad5700f5c4cf0));});
+        testCase(w, "MinHash", hashSize, numIterations, [](uint32_t m){return MinHash<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0x955e28fcedd50e0f));});
+        testCase(w, "SuperMinHash", hashSize, numIterations, [](uint32_t m){return SuperMinHash<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0xd647a0e043225db3));});
+        testCase(w, "OPH", hashSize, numIterations, [](uint32_t m){return OnePermutationHashingWithOptimalDensification<uint64_t, ExtractFunction, RNGFunction, RNGFunctionForSignatureComponents>(m, ExtractFunction(), RNGFunction(0x61af5b0a94498d39), RNGFunctionForSignatureComponents(0x17e56631727aac60));});
+        //testCase(w, "HistoSketch", hashSize, numIterations, [](uint32_t m){return HistoSketch<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0xa9b7a09103ca956b));});
+        //testCase(w, "0-bit Engineered", hashSize, numIterations, [](uint32_t m){return ZeroBitEngineered<uint64_t, ExtractFunction, RNGFunction>(m, ExtractFunction(), RNGFunction(0x77294d7eba3f85c1));});
+    } else {
+        testCase(w, "P-MinHash", hashSize, numIterations, [](uint32_t m){return PMinHash<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0x60979c513666ee4b));});
+        testCase(w, "ProbMinHash1", hashSize, numIterations, [](uint32_t m){return ProbMinHash1<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0x897d7798a7629409));});
+        testCase(w, "ProbMinHash1a", hashSize, numIterations, [](uint32_t m){return ProbMinHash1a<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0x897d7798a7629409));});
+        testCase(w, "ProbMinHash2", hashSize, numIterations, [](uint32_t m){return ProbMinHash2<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0x930bb771b6666420));});
+        if(hashSize > 1) testCase(w, "ProbMinHash3", hashSize, numIterations, [](uint32_t m){return ProbMinHash3<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0xa03cf8d39d2a03b8));});
+        if(hashSize > 1) testCase(w, "ProbMinHash3a", hashSize, numIterations, [](uint32_t m){return ProbMinHash3a<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0xa03cf8d39d2a03b8));});
+        if(hashSize > 1) testCase(w, "ProbMinHash4", hashSize, numIterations, [](uint32_t m){return ProbMinHash4<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0x02f7adcab92fdcbb));});
+        //testCase(w, "HistoSketch", hashSize, numIterations, [](uint32_t m){return HistoSketch<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0x672a7d286a025f11));});
+        //testCase(w, "0-bit Engineered", hashSize, numIterations, [](uint32_t m){return ZeroBitEngineered<uint64_t, ExtractFunction, RNGFunction, WeightFunction>(m, ExtractFunction(), RNGFunction(0xc8f40b415d4cf25f));});
     }
 }
 
