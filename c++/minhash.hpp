@@ -13,6 +13,7 @@
 #include <limits>
 #include <algorithm>
 #include <unordered_map>
+#include <numeric>
 
 template <typename T>
 class MaxValueTracker {
@@ -420,6 +421,98 @@ public:
 
 
 template<typename D, typename E, typename R, typename W = UnaryWeightFunction>
+class NonStreamingProbMinHash2 {
+    constexpr static bool isWeighted = !std::is_same<W, UnaryWeightFunction>::value;
+
+    const uint32_t m;
+    const E extractFunction;
+    const R rngFunction;
+    const W weightFunction;
+
+    PermutationStream permutationStream;
+    const std::unique_ptr<double[]> g;
+    const double initialLimitFactor;
+
+public:
+
+    NonStreamingProbMinHash2(const uint32_t m, E extractFunction = E(), R rngFunction = R(), W weightFunction = W(), double successProbabilityFirstRun = 0.9) : 
+        m(m), 
+        extractFunction(extractFunction), 
+        rngFunction(rngFunction), 
+        weightFunction(weightFunction), 
+        permutationStream(m), 
+        g(new double[m-1]),
+        initialLimitFactor(-std::log(-std::expm1(std::log(successProbabilityFirstRun) / m))*m)
+    {
+        for(uint32_t i = 1; i < m; ++i) {
+            g[i - 1] = static_cast<double>(m) / static_cast<double>(m - i);
+        }
+    }
+
+    template<typename X>
+    std::vector<D> operator()(const X& data, uint64_t* iterationCounter = nullptr) {
+
+        double weightSum;
+        if constexpr(isWeighted) {    
+            weightSum = std::accumulate(data.begin(), data.end(), 0., [this](double x, const auto& d) {return x + weightFunction(d);});
+        } else {
+            weightSum = data.size();
+        }
+
+        std::vector<D> result(m);
+
+        const double limitIncrement = initialLimitFactor / weightSum;
+
+        double limit = limitIncrement;
+
+        std::vector<double> hashValues(m, limit);
+
+        if (iterationCounter != nullptr) *iterationCounter = 1;
+
+        while(true) {
+
+            for(const auto& x : data) {
+
+                #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+                double wInv;
+                if constexpr(isWeighted) {
+                    double w = weightFunction(x);
+                    if (!( w > 0)) continue;
+                    wInv = 1. / w;
+                }
+                const D& d = extractFunction(x);
+                auto rng = rngFunction(d);
+                permutationStream.reset();
+                
+                double h;
+                if constexpr(isWeighted) h = wInv * ziggurat::getExponential(rng); else h = ziggurat::getExponential(rng);
+                uint32_t i = 0;
+                while(h < limit) {
+                    uint32_t k = permutationStream.next(rng);
+                    if (h < hashValues[k]) {
+                        hashValues[k] = h;
+                        result[k] = d;
+                    }
+                    if constexpr(isWeighted) h += (wInv * g[i]) * ziggurat::getExponential(rng); else h += g[i] * ziggurat::getExponential(rng);
+                    i += 1;
+                    if (i == m) break;
+                }
+            }
+
+            bool success = std::none_of(hashValues.begin(), hashValues.end(), [limit](const auto& r){return r == limit;});
+
+            if (success) return result;
+
+            if (iterationCounter != nullptr) (*iterationCounter) += 1;
+            double oldLimit = limit;
+            limit += limitIncrement;
+            std::for_each(hashValues.begin(), hashValues.end(), [oldLimit, limit](auto& d) {if (d == oldLimit) d = limit;});
+        }
+    }
+};
+
+
+template<typename D, typename E, typename R, typename W = UnaryWeightFunction>
 class ProbMinHash3 {
     constexpr static bool isWeighted = !std::is_same<W, UnaryWeightFunction>::value;
 
@@ -663,6 +756,119 @@ ProbMinHash4(const uint32_t m, E extractFunction = E(), R rngFunction = R(), W w
         return result;
     }
 };
+
+template<typename D, typename E, typename R, typename W = UnaryWeightFunction>
+class NonStreamingProbMinHash4 {
+    constexpr static bool isWeighted = !std::is_same<W, UnaryWeightFunction>::value;
+
+    const uint32_t m;
+    const E extractFunction;
+    const R rngFunction;
+    const W weightFunction;
+
+    PermutationStream permutationStream;
+    const std::unique_ptr<double[]> boundaries;
+    const std::unique_ptr<TruncatedExponentialDistribution[]> truncatedExponentialDistributions;
+    double firstBoundaryInv;
+    const double initialLimitFactor;
+
+public:
+
+    NonStreamingProbMinHash4(const uint32_t m, E extractFunction = E(), R rngFunction = R(), W weightFunction = W(), double successProbabilityFirstRun = 0.9) : m(m), extractFunction(extractFunction), rngFunction(rngFunction), 
+            weightFunction(weightFunction), permutationStream(m), boundaries(new double[m-1]), truncatedExponentialDistributions(new TruncatedExponentialDistribution[m-1]), initialLimitFactor(-std::log(-std::expm1(std::log(successProbabilityFirstRun) / m))*m) {
+        assert(m > 1);
+        const double firstBoundary = log1p(1./static_cast<double>(m-1));
+        double previousBoundary = firstBoundary;
+        truncatedExponentialDistributions[0] = TruncatedExponentialDistribution(firstBoundary);
+        boundaries[0] = 1;
+        for(uint32_t i = 1; i < m-1; ++i) {
+            const double boundary = log1p(static_cast<double>(i + 1)/static_cast<double>(m - i - 1));
+            boundaries[i] = boundary / firstBoundary;
+            truncatedExponentialDistributions[i] = TruncatedExponentialDistribution(boundary - previousBoundary);
+            previousBoundary = boundary;
+        }
+        firstBoundaryInv = 1. / firstBoundary;
+    }
+
+    template<typename X>
+    std::vector<D> operator()(const X& data, uint64_t* iterationCounter = nullptr) {
+
+        double weightSum;
+        if constexpr(isWeighted) {    
+            weightSum = std::accumulate(data.begin(), data.end(), 0., [this](double x, const auto& d) {return x + weightFunction(d);});
+        } else {
+            weightSum = data.size();
+        }
+
+        std::vector<D> result(m);
+
+        const double limitIncrement = initialLimitFactor / weightSum;
+
+        double limit = limitIncrement;
+
+        std::vector<double> hashValues(m, limit);
+
+        if (iterationCounter != nullptr) *iterationCounter = 1;
+
+        while(true) {
+
+            for(const auto& x : data) {
+
+                double wInv;
+                if constexpr(isWeighted) {
+                    double w = weightFunction(x);
+                    if (!( w > 0)) continue;
+                    wInv = 1. / w;
+                }
+                const D& d = extractFunction(x);
+                auto rng = rngFunction(d);
+                permutationStream.reset();
+                
+                double h;
+                if constexpr(isWeighted) h = wInv * truncatedExponentialDistributions[0](rng); else h = getUniformDouble(rng);
+                uint32_t i = 1;
+                while(h < limit) {
+                    uint32_t k = permutationStream.next(rng);
+                    if (h < hashValues[k]) {
+                        hashValues[k] = h;
+                        result[k] = d;
+                    }
+                    if constexpr(isWeighted) {
+                        if (wInv * boundaries[i-1] >= limit) break; 
+                    }
+                    else {
+                        if (i >= limit) break; 
+                    }
+                    if (i < m - 1) {
+                        if constexpr(isWeighted) h = wInv * (boundaries[i-1] + (boundaries[i] - boundaries[i-1]) * truncatedExponentialDistributions[i](rng)); else  h = i + getUniformDouble(rng);
+                    }
+                    else {
+                        if constexpr(isWeighted) h = wInv * (boundaries[m-2] + firstBoundaryInv * ziggurat::getExponential(rng)); else h = (m - 1) + getUniformDouble(rng);
+                        if (h < limit) {
+                            uint32_t k = permutationStream.next(rng);
+                            if (h < hashValues[k]) {
+                                hashValues[k] = h;
+                                result[k] = d;
+                            }
+                        }
+                        break;
+                    }
+                    i += 1;
+                }
+            }
+
+            bool success = std::none_of(hashValues.begin(), hashValues.end(), [limit](const auto& r){return r == limit;});
+
+            if (success) return result;
+
+            if (iterationCounter != nullptr) (*iterationCounter) += 1;
+            double oldLimit = limit;
+            limit += limitIncrement;
+            std::for_each(hashValues.begin(), hashValues.end(), [oldLimit, limit](auto& d) {if (d == oldLimit) d = limit;});
+        }
+    }
+};
+
 
 // An implementation of the original MinHash algorithm as described in
 // Andrei Z. Broder. 1997. On the Resemblance and Containment of Documents. In Proc. Compression and Complexity of Sequences. 21–2 
