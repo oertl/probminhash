@@ -122,7 +122,7 @@ def plot(ax, hashSize, algorithms, data, title, isLastRow, isFirstCol):
         mappedAlg = algorithmMapping[algorithmDescription] 
 
         ax.fill_between(dataSizes, percentiles005, percentiles995,
-                        faceColor=color_defs.colors[mappedAlg], edgeColor=None, zorder=-100)
+                        facecolor=color_defs.colors[mappedAlg], edgecolor=None, zorder=-100)
 
         ax.plot(dataSizes, means, label=mappedAlg, linewidth=0.5, linestyle=None,marker='.', markersize=4,color=color_defs.colors[mappedAlg[:-1]],zorder=100)
 

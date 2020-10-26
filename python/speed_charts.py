@@ -46,16 +46,16 @@ def drawChart(ax, data, hashSize, mode, isLastRow, isFirstCol):
 
     algorithms = list(algorithms)
     if (mode == "exp(1)"):
-        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4"]
+        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "NonStreamingProbMinHash2", "NonStreamingProbMinHash4"]
         title = r"$m=" + str(hashSize) + r"\quad w(d)\sim\text{Exp}(1)$"
     elif (mode == "pareto(1,0.5)"):
-        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4"]
+        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "NonStreamingProbMinHash2", "NonStreamingProbMinHash4"]
         title = r"$m=" + str(hashSize) + r"\quad w(d)\sim\text{Pareto}(1,0.5)$"
     elif (mode == "pareto(1,2)"):
-        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4"]
+        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "NonStreamingProbMinHash2", "NonStreamingProbMinHash4"]
         title = r"$m=" + str(hashSize) + r"\quad w(d)\sim\text{Pareto}(1,2)$"
     elif (mode == "unweighted"):
-        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "MinHash", "SuperMinHash", "OPH"]
+        sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a", "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "MinHash", "SuperMinHash", "OPH", "NonStreamingProbMinHash2", "NonStreamingProbMinHash4"]
         title = r"$m=" + str(hashSize) + r"\quad w(d)=1$"
     else:
         assert(False)
@@ -81,7 +81,7 @@ def drawChart(ax, data, hashSize, mode, isLastRow, isFirstCol):
 
     for algorithm in algorithms:
         y = [r[dataSize][algorithm] for dataSize in dataSizes]
-        ax.plot(dataSizes, y, marker='.', label=r""+algorithm, color=color_defs.colors[algorithm], linewidth=1)
+        ax.plot(dataSizes, y, marker='.', label=algorithm.replace("NonStreamingProbMinHash", "NonStreamingPMH"), color=color_defs.colors[algorithm], linewidth=1)
 
     handles, labels = ax.get_legend_handles_labels()
 

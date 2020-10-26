@@ -118,10 +118,10 @@ def getAlgorithmDescriptions(data, caseId):
     if(isUnweighted(data, caseId)):
         sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a",
                             "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", 
-                            "MinHash", "SuperMinHash", "OPH"]
+                            "MinHash", "SuperMinHash", "OPH", "NonStreamingProbMinHash2", "NonStreamingProbMinHash4"]
     else:
         sortedAlgorithms = ["P-MinHash", "ProbMinHash1", "ProbMinHash1a",
-                            "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4"]
+                            "ProbMinHash2", "ProbMinHash3", "ProbMinHash3a", "ProbMinHash4", "NonStreamingProbMinHash2", "NonStreamingProbMinHash4"]
 
     assert(sorted(sortedAlgorithms) == sorted(result))
 
@@ -193,7 +193,7 @@ def checkEqualResults(data, algorithmDescription1, algorithmDescription2):
 
 headers, data = readData()
 
-equivalentAlgorithms = { "ProbMinHash1a":"ProbMinHash1", "ProbMinHash3a": "ProbMinHash3"}
+equivalentAlgorithms = { "ProbMinHash1a":"ProbMinHash1", "ProbMinHash3a": "ProbMinHash3", "NonStreamingProbMinHash2":"ProbMinHash2", "NonStreamingProbMinHash4":"ProbMinHash4"}
 
 for alg1, alg2 in equivalentAlgorithms.items():
     checkEqualResults(data, alg1, alg2)
@@ -238,7 +238,7 @@ for row in range(0, 3):
         zScoreLowerLimit = [1. - zScoreLimit * calculateSigma(Jp, numIterations, xx) for xx in xForZScoreBand]
 
         ax.fill_between(xForZScoreBand, zScoreLowerLimit, zScoreUpperLimit,
-                        faceColor='#cccccc', edgeColor=None, label="{:}".format(probability*100) + r"\%$")
+                        facecolor='#cccccc', edgecolor=None, label="{:}".format(probability*100) + r"\%")
 
         ax.set_title(r"$J_p=" + "{:10.3f}".format(Jp) + r"\quad W=" + pCaseDescription[1:], fontsize=10)
         algorithmDescriptions = getAlgorithmDescriptions(data, caseId)

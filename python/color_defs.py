@@ -15,13 +15,17 @@ lightviolet = "#cab2d6"
 darkviolet = "#6a3d9a"
 yellow = "#ffff99"
 brown = "#b15928"
+gold = "gold"
+magenta = "magenta"
 
 colors = {
     "P-MinHash" : darkorange,
     "ProbMinHash1" : darkgreen,
     "ProbMinHash2" : darkred,
+    "NonStreamingProbMinHash2" : gold,
     "ProbMinHash3" : darkblue,
     "ProbMinHash4": darkviolet,
+    "NonStreamingProbMinHash4" : magenta,
     "ProbMinHash1a": lightgreen,
     "ProbMinHash3a": lightblue,
     "OPH" : brown,
